@@ -1,16 +1,19 @@
 ﻿using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem; 
+using UnityEngine.InputSystem;
+using UnityEngine.UI; // <--- IMPORTANTE: NECESARIO PARA LA BARRA DE VIDA
 
 public class Player : MonoBehaviour
 {
-    [SerializeField] TextMeshProUGUI healthtext;
+    [Header("Interfaz (UI)")]
+    public Slider barraDeVida; // <--- CAMBIAMOS TEXTO POR SLIDER
+    // public TextMeshProUGUI healthtext; // Ya no necesitamos el texto, o puedes dejarlo si quieres ambos
 
     Animator anim;
     Rigidbody2D rb;
 
     float moveSpeed = 12;
-    int maxHealth = 100;
+    public int maxHealth = 100; // Lo hago publico para verlo en inspector
     int currentHealth;
 
     bool dead = false;
@@ -28,9 +31,7 @@ public class Player : MonoBehaviour
     {
         anim = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
-
         mainCamera = Camera.main;
-
         playerControls = new InputSystem_Actions();
     }
 
@@ -46,11 +47,16 @@ public class Player : MonoBehaviour
         playerControls.Player.Attack.performed -= HandleShoot;
     }
 
-
     private void Start()
     {
         currentHealth = maxHealth;
-        healthtext.text = maxHealth.ToString();
+
+        // --- CONFIGURACIÓN DE LA BARRA ---
+        if (barraDeVida != null)
+        {
+            barraDeVida.maxValue = maxHealth; // La barra vale lo mismo que tu vida máxima
+            barraDeVida.value = currentHealth; // La llenamos al inicio
+        }
     }
 
     private void Update()
@@ -62,10 +68,7 @@ public class Player : MonoBehaviour
             return;
         }
 
-        // --- LÓGICA DE INPUT ---
         movement = playerControls.Player.Move.ReadValue<Vector2>();
-
-        // Leer la POSICIÓN del mouse
         aimInput = Mouse.current.position.ReadValue();
 
         HandleAiming();
@@ -86,7 +89,7 @@ public class Player : MonoBehaviour
             facingDirection = aimDirection.x > 0 ? 1 : -1;
         transform.localScale = new Vector2(facingDirection, 1);
 
-        if (GunManager.Instance != null) 
+        if (GunManager.Instance != null)
         {
             foreach (Gun gun in GunManager.Instance.activeGuns)
             {
@@ -97,7 +100,7 @@ public class Player : MonoBehaviour
 
     private void HandleShoot(InputAction.CallbackContext context)
     {
-        if (dead) return; 
+        if (dead) return;
 
         if (GunManager.Instance != null)
         {
@@ -125,32 +128,32 @@ public class Player : MonoBehaviour
     {
         anim.SetTrigger("hit");
         currentHealth -= damage;
-        healthtext.text = Mathf.Clamp(currentHealth, 0, maxHealth).ToString();
+
+        // --- ACTUALIZAR BARRA AL RECIBIR DAÑO ---
+        if (barraDeVida != null)
+        {
+            barraDeVida.value = currentHealth;
+        }
 
         if (currentHealth <= 0)
             Die();
     }
 
-    // --- NUEVA FUNCIÓN: CURAR ---
-    // Esta función la llamará la poción (ItemLoot.cs)
     public void Curar(int cantidad)
     {
-        if (dead) return; // No curar a los muertos
+        if (dead) return;
 
         currentHealth += cantidad;
+        if (currentHealth > maxHealth) currentHealth = maxHealth;
 
-        // Evitar que la vida suba más de 100
-        if (currentHealth > maxHealth)
+        // --- ACTUALIZAR BARRA AL CURARSE ---
+        if (barraDeVida != null)
         {
-            currentHealth = maxHealth;
+            barraDeVida.value = currentHealth;
         }
-
-        // Actualizar el texto de la pantalla
-        healthtext.text = currentHealth.ToString();
 
         Debug.Log("❤️ Curado! Vida actual: " + currentHealth);
     }
-    // --- FIN NUEVA FUNCIÓN ---
 
     void Die()
     {

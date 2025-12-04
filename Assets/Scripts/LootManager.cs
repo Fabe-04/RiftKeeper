@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-using TMPro; // <--- NECESARIO PARA EL TEXTO
+using TMPro;
 
 public class LootManager : MonoBehaviour
 {
@@ -10,7 +10,7 @@ public class LootManager : MonoBehaviour
     public GameObject pocionPrefab;
 
     [Header("Interfaz (UI)")]
-    public TextMeshProUGUI textoMonedas; // <--- ARRASTRA AQUÍ TU TEXTO NUEVO
+    public TextMeshProUGUI textoMonedas;
     public int monedasTotales = 0;
 
     public enum EnemyType { Basico, Charger }
@@ -23,13 +23,12 @@ public class LootManager : MonoBehaviour
 
     private void Start()
     {
-        // Al empezar, ponemos el contador a 0 en la pantalla
         ActualizarTexto();
     }
 
     public void SpawnLoot(Vector3 posicionMuerte, EnemyType tipoEnemigo)
     {
-        // Forzamos Z=0 para intentar arreglar lo visual
+        // Posición base (donde muere el enemigo, pero en Z=0)
         Vector3 posicionVisible = new Vector3(posicionMuerte.x, posicionMuerte.y, 0f);
 
         if (tipoEnemigo == EnemyType.Basico)
@@ -42,13 +41,21 @@ public class LootManager : MonoBehaviour
         }
         else if (tipoEnemigo == EnemyType.Charger)
         {
+            // 1. Soltamos la Moneda en el sitio exacto
             Instantiate(monedaPrefab, posicionVisible, Quaternion.identity);
 
             float probabilidadPocion = Random.Range(0f, 100f);
-            // Puedes dejar esto en 25f o subirlo para pruebas
-            if (probabilidadPocion <= 25f)
+
+            // (Dejado en 100f para tus pruebas, luego bájalo a 25f)
+            if (probabilidadPocion <= 100f)
             {
-                Instantiate(pocionPrefab, posicionVisible, Quaternion.identity);
+                // --- CAMBIO AQUÍ: EL EMPUJÓN ---
+                // Creamos una nueva posición sumándole 0.8 en X (a la derecha)
+                Vector3 posicionPocion = posicionVisible + new Vector3(2.5f, 0f, 0f);
+                // -------------------------------
+
+                // Usamos 'posicionPocion' en vez de 'posicionVisible'
+                Instantiate(pocionPrefab, posicionPocion, Quaternion.identity);
             }
         }
     }
@@ -56,11 +63,10 @@ public class LootManager : MonoBehaviour
     public void SumarMoneda(int cantidad)
     {
         monedasTotales += cantidad;
-        ActualizarTexto(); // Actualizamos la pantalla
+        ActualizarTexto();
         Debug.Log("💰 MONEDAS: " + monedasTotales);
     }
 
-    // Función auxiliar para escribir en pantalla
     void ActualizarTexto()
     {
         if (textoMonedas != null)
