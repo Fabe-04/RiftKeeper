@@ -43,6 +43,15 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
+  - name: Suelo
+    uniqueID: 669182019
+    locked: 0
+  - name: Items
+    uniqueID: 4277666111
+    locked: 0
+  - name: Personajes
+    uniqueID: 673816411
+    locked: 0
   - name: Background
     uniqueID: 1627472689
     locked: 0
