@@ -1,16 +1,21 @@
-using TMPro;
+Ôªøusing TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem; // Importante
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
-    [SerializeField] TextMeshProUGUI healthtext;
+    [Header("Interfaz (UI)")]
+    public Slider barraDeVida;
+
+    [Header("Visuales")]
+    [SerializeField] SpriteRenderer mySprite; // <--- NUEVO: Para girar solo el dibujo
 
     Animator anim;
     Rigidbody2D rb;
 
     float moveSpeed = 12;
-    int maxHealth = 100;
+    public int maxHealth = 100;
     int currentHealth;
 
     bool dead = false;
@@ -18,49 +23,39 @@ public class Player : MonoBehaviour
     private InputSystem_Actions playerControls;
     private Vector2 movement;
 
-    // --- NUEVO: Variables de Apuntado ---
+    // --- Variables de Apuntado ---
     private Camera mainCamera;
     private Vector2 aimInput;
-    // --- FIN NUEVO ---
-
-    int facingDirection = 1;
 
     private void Awake()
     {
         anim = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
-
-        // --- NUEVO: Obtener la c·mara principal ---
         mainCamera = Camera.main;
-        // --- FIN NUEVO ---
-
         playerControls = new InputSystem_Actions();
     }
 
     private void OnEnable()
     {
         playerControls.Player.Enable();
-
-        // --- NUEVO: Registrar la acciÛn de "Attack" ---
-        // Cuando se presiona "Attack", se llama a la funciÛn HandleShoot
         playerControls.Player.Attack.performed += HandleShoot;
-        // --- FIN NUEVO ---
     }
 
     private void OnDisable()
     {
         playerControls.Player.Disable();
-
-        // --- NUEVO: De-registrar la acciÛn ---
         playerControls.Player.Attack.performed -= HandleShoot;
-        // --- FIN NUEVO ---
     }
-
 
     private void Start()
     {
         currentHealth = maxHealth;
-        healthtext.text = maxHealth.ToString();
+
+        if (barraDeVida != null)
+        {
+            barraDeVida.maxValue = maxHealth;
+            barraDeVida.value = currentHealth;
+        }
     }
 
     private void Update()
@@ -72,50 +67,34 @@ public class Player : MonoBehaviour
             return;
         }
 
-        // --- L”GICA DE INPUT ---
         movement = playerControls.Player.Move.ReadValue<Vector2>();
-
-        // --- NUEVO: Leer la POSICI”N del mouse (no el delta) ---
-        // Usamos la acciÛn "Look" pero leemos el input del mouse directamente
         aimInput = Mouse.current.position.ReadValue();
-        // --- FIN NUEVO ---
 
-
-        // --- NUEVO: Llamar a las funciones de lÛgica ---
         HandleAiming();
         HandleMovementAnimation();
-        // --- FIN NUEVO ---
     }
 
     private void HandleMovementAnimation()
     {
         anim.SetFloat("velocity", movement.magnitude);
-
-        // Esta lÛgica de "facing" debe cambiar: ahora la define el mouse, no el movimiento.
-        // La eliminaremos por ahora para que el apuntado la controle.
-        /*
-        if (movement.x != 0)
-            facingDirection = movement.x > 0 ? 1 : -1;
-        transform.localScale = new Vector2(facingDirection, 1);
-        */
     }
 
-    // --- NUEVA FUNCI”N: HandleAiming() ---
+    // --- FUNCI√ìN ARREGLADA ---
     private void HandleAiming()
     {
-        // 1. Convertir la posiciÛn del mouse (Pixeles) a la posiciÛn del Mundo (Unidades de Unity)
         Vector2 mouseWorldPosition = mainCamera.ScreenToWorldPoint(aimInput);
-
-        // 2. Calcular la direcciÛn desde el jugador hacia el mouse
         Vector2 aimDirection = (mouseWorldPosition - (Vector2)transform.position).normalized;
 
-        // 3. Actualizar el "facing" del jugador basado en el mouse
-        if (aimDirection.x != 0)
-            facingDirection = aimDirection.x > 0 ? 1 : -1;
-        transform.localScale = new Vector2(facingDirection, 1);
+        // --- CAMBIO CLAVE: Usamos flipX en vez de Scale ---
+        if (mySprite != null)
+        {
+            // Si la X es negativa (miramos a la izquierda), activamos el FlipX
+            // Si es positiva, lo desactivamos
+            mySprite.flipX = (aimDirection.x < 0);
+        }
+        // -------------------------------------------------
 
-        // 4. Decirle a todas las armas que apunten en esa direcciÛn
-        if (GunManager.Instance != null) // Asegurarse que el Manager existe
+        if (GunManager.Instance != null)
         {
             foreach (Gun gun in GunManager.Instance.activeGuns)
             {
@@ -123,15 +102,12 @@ public class Player : MonoBehaviour
             }
         }
     }
-    // --- FIN NUEVO ---
+    // -------------------------
 
-    // --- NUEVA FUNCI”N: HandleShoot() ---
-    // Esta funciÛn es llamada por el Evento de Input "Attack"
     private void HandleShoot(InputAction.CallbackContext context)
     {
-        if (dead) return; // No disparar si est· muerto
+        if (dead) return;
 
-        // Decirle a todas las armas que intenten disparar
         if (GunManager.Instance != null)
         {
             foreach (Gun gun in GunManager.Instance.activeGuns)
@@ -140,7 +116,6 @@ public class Player : MonoBehaviour
             }
         }
     }
-    // --- FIN NUEVO ---
 
     private void FixedUpdate()
     {
@@ -159,11 +134,31 @@ public class Player : MonoBehaviour
     {
         anim.SetTrigger("hit");
         currentHealth -= damage;
-        healthtext.text = Mathf.Clamp(currentHealth, 0, maxHealth).ToString();
+
+        if (barraDeVida != null)
+        {
+            barraDeVida.value = currentHealth;
+        }
 
         if (currentHealth <= 0)
             Die();
     }
+
+    public void Curar(int cantidad)
+    {
+        if (dead) return;
+
+        currentHealth += cantidad;
+        if (currentHealth > maxHealth) currentHealth = maxHealth;
+
+        if (barraDeVida != null)
+        {
+            barraDeVida.value = currentHealth;
+        }
+
+        Debug.Log("‚ù§Ô∏è Curado! Vida actual: " + currentHealth);
+    }
+
     void Die()
     {
         dead = true;
