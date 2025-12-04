@@ -710,7 +710,7 @@ Rigidbody2D:
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
-  m_Constraints: 0
+  m_Constraints: 4
 --- !u!114 &346132735
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -724,6 +724,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player
   barraDeVida: {fileID: 29253819}
+  mySprite: {fileID: 167097516}
   maxHealth: 100
 --- !u!4 &346132736
 Transform:

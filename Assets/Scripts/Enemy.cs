@@ -4,12 +4,11 @@ using System.Collections;
 public class Enemy : MonoBehaviour
 {
     [Header("Loot Configuration")]
-    // 1. AQUI ELEGIRAS SI ES BASICO O CHARGER EN EL INSPECTOR
     public LootManager.EnemyType enemyType;
 
     [Header("Stats")]
     [SerializeField] int maxHealth = 100;
-    [SerializeField] float baseSpeed = 2f; // Velocidad base para enemigos normales
+    [SerializeField] float baseSpeed = 2f;
 
     [Header("Charger (Elite)")]
     [SerializeField] bool isCharger;
@@ -27,11 +26,15 @@ public class Enemy : MonoBehaviour
     private Vector2 chargeStartPosition;
 
     private int currentHealth;
-    private Transform target; // El jugador
+    private Transform target;
 
     private Rigidbody2D rb;
     private Animator anim;
     private Coroutine chargeCoroutine;
+
+    // --- NUEVO: Variable para guardar el tamaño ---
+    private float enemyScale = 1f;
+    // ---------------------------------------------
 
     private void Awake()
     {
@@ -43,36 +46,47 @@ public class Enemy : MonoBehaviour
     {
         currentHealth = maxHealth;
 
-        // --- AJUSTE DE VELOCIDAD INICIAL ---
-        if (isCharger)
+        // --- NUEVO: Configurar Tamaño y Masa según el tipo ---
+        if (enemyType == LootManager.EnemyType.Charger)
         {
-            currentMoveSpeed = baseSpeed * chargerSlowModifier;
+            // EL CHARGER SERÁ MÁS GRANDE Y PESADO
+            enemyScale = 1.5f; // 30% más grande (puedes poner 1.5f si quieres más)
+            rb.mass = 50f;     // Más pesado para empujar a los pequeños
+
+            // Ajustamos velocidad si es charger
+            if (isCharger) currentMoveSpeed = baseSpeed * chargerSlowModifier;
+            else currentMoveSpeed = baseSpeed;
         }
         else
         {
+            // ENEMIGO NORMAL
+            enemyScale = 1f;
+            rb.mass = 10f; // Peso normal
             currentMoveSpeed = baseSpeed;
         }
+        // -----------------------------------------------------
 
         target = GameObject.FindWithTag("Player")?.transform;
 
-        // Verificamos si EnemyManager existe antes de registrar (por seguridad)
         if (EnemyManager.Instance != null)
             EnemyManager.Instance.RegisterEnemy(this);
     }
 
     private void Update()
     {
-        // Condiciones para detener la lógica
         if (target == null || (WaveManager.Instance != null && !WaveManager.Instance.WaveRuuning()) || isPreparingCharge || isCharging || currentHealth <= 0)
         {
             return;
         }
 
-        // Lógica de voltear (facing)
+        // --- Lógica de voltear (facing) ARREGLADA ---
         var playerToTheRight = target.position.x > transform.position.x;
-        transform.localScale = new Vector2(playerToTheRight ? -1 : 1, 1);
 
-        // Comprobar si un Charger debe iniciar la preparación de carga
+        // EN LUGAR DE USAR 1, USAMOS LA VARIABLE 'enemyScale'
+        // Si mira a la derecha es -scale, si mira a la izquierda es scale (o viceversa según tu sprite)
+        transform.localScale = new Vector3(playerToTheRight ? -enemyScale : enemyScale, enemyScale, 1);
+        // --------------------------------------------
+
         if (isCharger && Vector2.Distance(transform.position, target.position) < distanceToEngageCharge)
         {
             if (chargeCoroutine == null)
@@ -97,7 +111,6 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    // --- CORUTINA DE EMBESTIDA ---
     private IEnumerator ChargeAttack()
     {
         isPreparingCharge = true;
@@ -179,13 +192,10 @@ public class Enemy : MonoBehaviour
         if (EnemyManager.Instance != null)
             EnemyManager.Instance.UnregisterEnemy(this);
 
-        // --- 2. AQUI ESTA LA MAGIA DEL LOOT ---
-        // Justo antes de destruir, le decimos al manager que suelte el premio
         if (LootManager.Instance != null)
         {
             LootManager.Instance.SpawnLoot(transform.position, enemyType);
         }
-        // --------------------------------------
 
         Destroy(gameObject);
     }

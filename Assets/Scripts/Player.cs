@@ -1,19 +1,21 @@
 ﻿using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI; // <--- IMPORTANTE: NECESARIO PARA LA BARRA DE VIDA
+using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
     [Header("Interfaz (UI)")]
-    public Slider barraDeVida; // <--- CAMBIAMOS TEXTO POR SLIDER
-    // public TextMeshProUGUI healthtext; // Ya no necesitamos el texto, o puedes dejarlo si quieres ambos
+    public Slider barraDeVida;
+
+    [Header("Visuales")]
+    [SerializeField] SpriteRenderer mySprite; // <--- NUEVO: Para girar solo el dibujo
 
     Animator anim;
     Rigidbody2D rb;
 
     float moveSpeed = 12;
-    public int maxHealth = 100; // Lo hago publico para verlo en inspector
+    public int maxHealth = 100;
     int currentHealth;
 
     bool dead = false;
@@ -24,8 +26,6 @@ public class Player : MonoBehaviour
     // --- Variables de Apuntado ---
     private Camera mainCamera;
     private Vector2 aimInput;
-
-    int facingDirection = 1;
 
     private void Awake()
     {
@@ -51,11 +51,10 @@ public class Player : MonoBehaviour
     {
         currentHealth = maxHealth;
 
-        // --- CONFIGURACIÓN DE LA BARRA ---
         if (barraDeVida != null)
         {
-            barraDeVida.maxValue = maxHealth; // La barra vale lo mismo que tu vida máxima
-            barraDeVida.value = currentHealth; // La llenamos al inicio
+            barraDeVida.maxValue = maxHealth;
+            barraDeVida.value = currentHealth;
         }
     }
 
@@ -80,14 +79,20 @@ public class Player : MonoBehaviour
         anim.SetFloat("velocity", movement.magnitude);
     }
 
+    // --- FUNCIÓN ARREGLADA ---
     private void HandleAiming()
     {
         Vector2 mouseWorldPosition = mainCamera.ScreenToWorldPoint(aimInput);
         Vector2 aimDirection = (mouseWorldPosition - (Vector2)transform.position).normalized;
 
-        if (aimDirection.x != 0)
-            facingDirection = aimDirection.x > 0 ? 1 : -1;
-        transform.localScale = new Vector2(facingDirection, 1);
+        // --- CAMBIO CLAVE: Usamos flipX en vez de Scale ---
+        if (mySprite != null)
+        {
+            // Si la X es negativa (miramos a la izquierda), activamos el FlipX
+            // Si es positiva, lo desactivamos
+            mySprite.flipX = (aimDirection.x < 0);
+        }
+        // -------------------------------------------------
 
         if (GunManager.Instance != null)
         {
@@ -97,6 +102,7 @@ public class Player : MonoBehaviour
             }
         }
     }
+    // -------------------------
 
     private void HandleShoot(InputAction.CallbackContext context)
     {
@@ -129,7 +135,6 @@ public class Player : MonoBehaviour
         anim.SetTrigger("hit");
         currentHealth -= damage;
 
-        // --- ACTUALIZAR BARRA AL RECIBIR DAÑO ---
         if (barraDeVida != null)
         {
             barraDeVida.value = currentHealth;
@@ -146,7 +151,6 @@ public class Player : MonoBehaviour
         currentHealth += cantidad;
         if (currentHealth > maxHealth) currentHealth = maxHealth;
 
-        // --- ACTUALIZAR BARRA AL CURARSE ---
         if (barraDeVida != null)
         {
             barraDeVida.value = currentHealth;
