@@ -3,31 +3,35 @@ using System.Collections;
 
 public class Enemy : MonoBehaviour
 {
+    [Header("Loot Configuration")]
+    // 1. AQUI ELEGIRAS SI ES BASICO O CHARGER EN EL INSPECTOR
+    public LootManager.EnemyType enemyType;
+
     [Header("Stats")]
     [SerializeField] int maxHealth = 100;
     [SerializeField] float baseSpeed = 2f; // Velocidad base para enemigos normales
 
     [Header("Charger (Elite)")]
     [SerializeField] bool isCharger;
-    [SerializeField] float chargerSlowModifier = 0.75f; // Qué tan más lento es el charger (ej: 0.75 = 75% de la velocidad base)
-    [SerializeField] float distanceToEngageCharge = 5f; // Distancia a la que empieza a preparar la carga
-    [SerializeField] float chargeSpeed = 12f;          // Velocidad durante la embestida
-    [SerializeField] float chargePrepareTime = 0.8f;     // Tiempo de la animación de "aviso"
-    [SerializeField] float chargeDistance = 7f;          // Distancia MÁXIMA que recorrerá la embestida
+    [SerializeField] float chargerSlowModifier = 0.75f;
+    [SerializeField] float distanceToEngageCharge = 5f;
+    [SerializeField] float chargeSpeed = 12f;
+    [SerializeField] float chargePrepareTime = 0.8f;
+    [SerializeField] float chargeDistance = 7f;
 
     // --- Variables de estado ---
     private bool isPreparingCharge = false;
     private bool isCharging = false;
-    private float currentMoveSpeed;         // Velocidad actual (puede cambiar si es charger)
-    private Vector2 chargeTargetDirection;  // Hacia dónde embestirá
-    private Vector2 chargeStartPosition;    // Dónde empezó la embestida
+    private float currentMoveSpeed;
+    private Vector2 chargeTargetDirection;
+    private Vector2 chargeStartPosition;
 
     private int currentHealth;
     private Transform target; // El jugador
 
     private Rigidbody2D rb;
     private Animator anim;
-    private Coroutine chargeCoroutine; // Para poder detener la embestida si choca
+    private Coroutine chargeCoroutine;
 
     private void Awake()
     {
@@ -42,25 +46,26 @@ public class Enemy : MonoBehaviour
         // --- AJUSTE DE VELOCIDAD INICIAL ---
         if (isCharger)
         {
-            currentMoveSpeed = baseSpeed * chargerSlowModifier; // Charger es más lento normalmente
+            currentMoveSpeed = baseSpeed * chargerSlowModifier;
         }
         else
         {
             currentMoveSpeed = baseSpeed;
         }
-        // --- FIN AJUSTE ---
 
-        target = GameObject.FindWithTag("Player")?.transform; // Busca al jugador por Tag (más seguro)
+        target = GameObject.FindWithTag("Player")?.transform;
 
-        EnemyManager.Instance.RegisterEnemy(this);
+        // Verificamos si EnemyManager existe antes de registrar (por seguridad)
+        if (EnemyManager.Instance != null)
+            EnemyManager.Instance.RegisterEnemy(this);
     }
 
     private void Update()
     {
         // Condiciones para detener la lógica
-        if (target == null || !WaveManager.Instance.WaveRuuning() || isPreparingCharge || isCharging || currentHealth <= 0)
+        if (target == null || (WaveManager.Instance != null && !WaveManager.Instance.WaveRuuning()) || isPreparingCharge || isCharging || currentHealth <= 0)
         {
-            return; // No hacer nada si está cargando, preparando, muerto o no hay objetivo/oleada
+            return;
         }
 
         // Lógica de voltear (facing)
@@ -70,7 +75,6 @@ public class Enemy : MonoBehaviour
         // Comprobar si un Charger debe iniciar la preparación de carga
         if (isCharger && Vector2.Distance(transform.position, target.position) < distanceToEngageCharge)
         {
-            // Solo iniciar si no está ya en proceso
             if (chargeCoroutine == null)
             {
                 chargeCoroutine = StartCoroutine(ChargeAttack());
@@ -80,113 +84,84 @@ public class Enemy : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // El movimiento normal (perseguir) solo ocurre si NO es charger o si es charger pero NO está preparando/cargando
-        bool canMoveNormally = target != null && WaveManager.Instance.WaveRuuning() && !isPreparingCharge && !isCharging && currentHealth > 0;
+        bool canMoveNormally = target != null && (WaveManager.Instance != null && WaveManager.Instance.WaveRuuning()) && !isPreparingCharge && !isCharging && currentHealth > 0;
 
         if (canMoveNormally)
         {
             Vector2 direction = (target.position - transform.position).normalized;
-            rb.linearVelocity = direction * currentMoveSpeed; // Usa la velocidad ajustada
+            rb.linearVelocity = direction * currentMoveSpeed;
         }
-        else if (!isCharging) // Si no se puede mover normalmente Y NO está cargando, detenerse
+        else if (!isCharging)
         {
             rb.linearVelocity = Vector2.zero;
         }
-        // Si está cargando (isCharging == true), la corrutina controla la velocidad.
     }
 
-    // --- CORUTINA DE EMBESTIDA MEJORADA ---
+    // --- CORUTINA DE EMBESTIDA ---
     private IEnumerator ChargeAttack()
     {
         isPreparingCharge = true;
-        rb.linearVelocity = Vector2.zero; // Detenerse para preparar
+        rb.linearVelocity = Vector2.zero;
 
-        // --- PASO 1: El "Aviso" (Tell) ---
-        anim?.SetTrigger("PrepareCharge"); // Disparador para la animación de aviso
-        Debug.Log("Charger preparando embestida!");
+        anim?.SetTrigger("PrepareCharge");
 
-        // Guardamos la DIRECCIÓN hacia el jugador en este instante
         chargeTargetDirection = (target.position - transform.position).normalized;
-        // La posición la guardaremos al empezar a embestir
 
         yield return new WaitForSeconds(chargePrepareTime);
 
-        // --- PASO 2: La Embestida ---
         isPreparingCharge = false;
         isCharging = true;
-        chargeStartPosition = rb.position; // Guardamos dónde empezamos a embestir
+        chargeStartPosition = rb.position;
 
-        // Aplicamos la velocidad de embestida en la dirección guardada
         rb.linearVelocity = chargeTargetDirection * chargeSpeed;
 
-        anim?.SetTrigger("Charge"); // Disparador para la animación de embestida
-        Debug.Log("¡¡CHARGER EMBISTIENDO!!");
+        anim?.SetTrigger("Charge");
 
-        // --- NUEVO: Bucle de Distancia ---
-        // Espera hasta recorrer la distancia O chocar (ver OnCollisionEnter2D)
         float distanceTraveled = 0f;
         while (isCharging && distanceTraveled < chargeDistance)
         {
             distanceTraveled = Vector2.Distance(chargeStartPosition, rb.position);
-            yield return null; // Espera al siguiente frame
+            yield return null;
         }
-        // --- FIN NUEVO ---
 
-        // Si el bucle terminó por distancia (y no por colisión), detenemos manualmente
         if (isCharging)
         {
             StopCharge();
         }
     }
-    // --- FIN CORUTINA MEJORADA ---
 
-    // --- NUEVO: Detectar Colisión DURANTE la embestida ---
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        // Si estamos embistiendo Y chocamos con un muro...
         if (isCharging && collision.gameObject.CompareTag("Wall"))
         {
-            Debug.Log("Charger chocó con muro!");
-            StopCharge(); // Detenemos la embestida
+            StopCharge();
         }
-        // Podrías añadir lógica si choca con el Player durante la carga aquí
     }
-    // --- FIN NUEVO ---
 
-
-    // --- NUEVA FUNCIÓN: Para detener limpiamente la embestida ---
     private void StopCharge()
     {
-        if (!isCharging) return; // Evitar llamadas múltiples
+        if (!isCharging) return;
 
         isCharging = false;
-        rb.linearVelocity = Vector2.zero; // Detenerse
-        currentMoveSpeed = baseSpeed * chargerSlowModifier; // Volver a velocidad lenta
-        anim?.SetTrigger("Idle"); // Volver a animación normal
-        Debug.Log("Embestida detenida.");
+        rb.linearVelocity = Vector2.zero;
+        currentMoveSpeed = baseSpeed * chargerSlowModifier;
+        anim?.SetTrigger("Idle");
 
-        // Limpiar la referencia a la corutina para poder cargar de nuevo
         chargeCoroutine = null;
-
-        // Podrías añadir un cooldown aquí antes de que pueda volver a cargar
-        // StartCoroutine(ChargeCooldown(2.0f));
     }
-    // --- FIN NUEVO ---
 
     public void Hit(int damage)
     {
-        if (currentHealth <= 0) return; // Evitar daño múltiple si ya está muerto
+        if (currentHealth <= 0) return;
 
         currentHealth -= damage;
         anim?.SetTrigger("hit");
 
-        // Detener la carga si le disparan mientras carga (opcional pero bueno)
         if (isCharging || isPreparingCharge)
         {
-            StopCoroutine(chargeCoroutine); // Detiene la corutina ChargeAttack
-            StopCharge();                   // Llama a la limpieza
+            if (chargeCoroutine != null) StopCoroutine(chargeCoroutine);
+            StopCharge();
         }
-
 
         if (currentHealth <= 0)
         {
@@ -196,17 +171,21 @@ public class Enemy : MonoBehaviour
 
     void Die()
     {
-        // Detener cualquier movimiento o carga pendiente
         StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
         isCharging = false;
         isPreparingCharge = false;
 
-        EnemyManager.Instance.UnregisterEnemy(this);
+        if (EnemyManager.Instance != null)
+            EnemyManager.Instance.UnregisterEnemy(this);
 
-        // Podrías activar una animación de muerte aquí antes de destruir
-        // anim?.SetTrigger("Die");
-        // yield return new WaitForSeconds(deathAnimationTime);
+        // --- 2. AQUI ESTA LA MAGIA DEL LOOT ---
+        // Justo antes de destruir, le decimos al manager que suelte el premio
+        if (LootManager.Instance != null)
+        {
+            LootManager.Instance.SpawnLoot(transform.position, enemyType);
+        }
+        // --------------------------------------
 
         Destroy(gameObject);
     }
