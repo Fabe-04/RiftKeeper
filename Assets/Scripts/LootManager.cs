@@ -47,14 +47,14 @@ public class LootManager : MonoBehaviour
             if (Random.Range(0f, 100f) <= 70f)
             {
                 // Un pequeño desplazamiento para que no caiga encima de la flecha
-                Instantiate(monedaPrefab, posicionVisible + new Vector3(0.5f, 0, 0), Quaternion.identity);
+                Instantiate(monedaPrefab, posicionVisible + new Vector3(1.5f, 0, 0), Quaternion.identity);
             }
         }
         else if (tipoEnemigo == EnemyType.Charger)
         {
             Instantiate(monedaPrefab, posicionVisible + new Vector3(0.5f, 0, 0), Quaternion.identity);
 
-            if (Random.Range(0f, 100f) <= 40f) // Probabilidad Poción
+            if (Random.Range(0f, 100f) <= 100f) // Probabilidad Poción
             {
                 Vector3 posPocion = posicionVisible + new Vector3(-0.5f, 0, 0);
                 Instantiate(pocionPrefab, posPocion, Quaternion.identity);

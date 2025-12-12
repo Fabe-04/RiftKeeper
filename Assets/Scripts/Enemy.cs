@@ -32,9 +32,8 @@ public class Enemy : MonoBehaviour
     private Animator anim;
     private Coroutine chargeCoroutine;
 
-    // --- NUEVO: Variable para guardar el tamaño ---
+    // --- Variable para guardar el tamaño ---
     private float enemyScale = 1f;
-    // ---------------------------------------------
 
     private void Awake()
     {
@@ -46,25 +45,20 @@ public class Enemy : MonoBehaviour
     {
         currentHealth = maxHealth;
 
-        // --- NUEVO: Configurar Tamaño y Masa según el tipo ---
+        // --- Configurar Tamaño y Masa según el tipo ---
         if (enemyType == LootManager.EnemyType.Charger)
         {
-            // EL CHARGER SERÁ MÁS GRANDE Y PESADO
-            enemyScale = 1.5f; // 30% más grande (puedes poner 1.5f si quieres más)
-            rb.mass = 50f;     // Más pesado para empujar a los pequeños
-
-            // Ajustamos velocidad si es charger
+            enemyScale = 1.5f;
+            rb.mass = 50f;
             if (isCharger) currentMoveSpeed = baseSpeed * chargerSlowModifier;
             else currentMoveSpeed = baseSpeed;
         }
         else
         {
-            // ENEMIGO NORMAL
             enemyScale = 1f;
-            rb.mass = 10f; // Peso normal
+            rb.mass = 10f;
             currentMoveSpeed = baseSpeed;
         }
-        // -----------------------------------------------------
 
         target = GameObject.FindWithTag("Player")?.transform;
 
@@ -79,13 +73,8 @@ public class Enemy : MonoBehaviour
             return;
         }
 
-        // --- Lógica de voltear (facing) ARREGLADA ---
         var playerToTheRight = target.position.x > transform.position.x;
-
-        // EN LUGAR DE USAR 1, USAMOS LA VARIABLE 'enemyScale'
-        // Si mira a la derecha es -scale, si mira a la izquierda es scale (o viceversa según tu sprite)
         transform.localScale = new Vector3(playerToTheRight ? -enemyScale : enemyScale, enemyScale, 1);
-        // --------------------------------------------
 
         if (isCharger && Vector2.Distance(transform.position, target.position) < distanceToEngageCharge)
         {
@@ -191,6 +180,14 @@ public class Enemy : MonoBehaviour
 
         if (EnemyManager.Instance != null)
             EnemyManager.Instance.UnregisterEnemy(this);
+
+        // --- NUEVO: AVISAR AL GAME MANAGER ---
+        // Aquí es donde ocurre la magia del conteo
+        if (GameManager.instance != null)
+        {
+            GameManager.instance.RegistrarMuerteEnemigo();
+        }
+        // -------------------------------------
 
         if (LootManager.Instance != null)
         {
