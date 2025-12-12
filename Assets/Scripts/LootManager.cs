@@ -8,6 +8,7 @@ public class LootManager : MonoBehaviour
     [Header("Objetos que van a caer")]
     public GameObject monedaPrefab;
     public GameObject pocionPrefab;
+    public GameObject flechaPickupPrefab; // <--- NUEVO: Arrastra tu prefab aquí
 
     [Header("Interfaz (UI)")]
     public TextMeshProUGUI textoMonedas;
@@ -28,34 +29,35 @@ public class LootManager : MonoBehaviour
 
     public void SpawnLoot(Vector3 posicionMuerte, EnemyType tipoEnemigo)
     {
-        // Posición base (donde muere el enemigo, pero en Z=0)
         Vector3 posicionVisible = new Vector3(posicionMuerte.x, posicionMuerte.y, 0f);
+
+        // --- LÓGICA DE FLECHAS (Para todos los enemigos) ---
+        // 50% de probabilidad de recuperar una flecha al matar
+        if (flechaPickupPrefab != null)
+        {
+            if (Random.Range(0f, 100f) <= 100f)
+            {
+                Instantiate(flechaPickupPrefab, posicionVisible, Quaternion.identity);
+            }
+        }
+        // ---------------------------------------------------
 
         if (tipoEnemigo == EnemyType.Basico)
         {
-            float probabilidad = Random.Range(0f, 100f);
-            if (probabilidad <= 70f)
+            if (Random.Range(0f, 100f) <= 70f)
             {
-                Instantiate(monedaPrefab, posicionVisible, Quaternion.identity);
+                // Un pequeño desplazamiento para que no caiga encima de la flecha
+                Instantiate(monedaPrefab, posicionVisible + new Vector3(0.5f, 0, 0), Quaternion.identity);
             }
         }
         else if (tipoEnemigo == EnemyType.Charger)
         {
-            // 1. Soltamos la Moneda en el sitio exacto
-            Instantiate(monedaPrefab, posicionVisible, Quaternion.identity);
+            Instantiate(monedaPrefab, posicionVisible + new Vector3(0.5f, 0, 0), Quaternion.identity);
 
-            float probabilidadPocion = Random.Range(0f, 100f);
-
-            // (Dejado en 100f para tus pruebas, luego bájalo a 25f)
-            if (probabilidadPocion <= 100f)
+            if (Random.Range(0f, 100f) <= 40f) // Probabilidad Poción
             {
-                // --- CAMBIO AQUÍ: EL EMPUJÓN ---
-                // Creamos una nueva posición sumándole 0.8 en X (a la derecha)
-                Vector3 posicionPocion = posicionVisible + new Vector3(2.5f, 0f, 0f);
-                // -------------------------------
-
-                // Usamos 'posicionPocion' en vez de 'posicionVisible'
-                Instantiate(pocionPrefab, posicionPocion, Quaternion.identity);
+                Vector3 posPocion = posicionVisible + new Vector3(-0.5f, 0, 0);
+                Instantiate(pocionPrefab, posPocion, Quaternion.identity);
             }
         }
     }
@@ -64,14 +66,10 @@ public class LootManager : MonoBehaviour
     {
         monedasTotales += cantidad;
         ActualizarTexto();
-        Debug.Log("💰 MONEDAS: " + monedasTotales);
     }
 
     void ActualizarTexto()
     {
-        if (textoMonedas != null)
-        {
-            textoMonedas.text = "Monedas: " + monedasTotales.ToString();
-        }
+        if (textoMonedas != null) textoMonedas.text = "Monedas: " + monedasTotales.ToString();
     }
 }
