@@ -132,7 +132,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7274764106311824801}
   - component: {fileID: 7795351469027522851}
-  - component: {fileID: 5167838186885245785}
+  - component: {fileID: 2302728188502596883}
   - component: {fileID: 4683531393453206177}
   - component: {fileID: 1165881131311046473}
   - component: {fileID: 5961308472674339080}
@@ -152,7 +152,7 @@ Transform:
   m_GameObject: {fileID: 6002813955839266388}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.79, y: 0.111, z: 0}
+  m_LocalPosition: {x: 2.65, y: 0.14, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -186,8 +186,8 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
---- !u!58 &5167838186885245785
-CircleCollider2D:
+--- !u!70 &2302728188502596883
+CapsuleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -220,8 +220,9 @@ CircleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0.44068056, y: 0.049181327}
-  m_Radius: 0.50533354
+  m_Offset: {x: -0.29203343, y: 0}
+  m_Size: {x: 3.1414132, y: 7.99}
+  m_Direction: 0
 --- !u!114 &4683531393453206177
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -234,6 +235,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c77d192b1b5a56447aa7e3f2970d703f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
+  enemyType: 0
   maxHealth: 80
   baseSpeed: 6
   isCharger: 0
@@ -308,8 +310,8 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 1222071687
-  m_SortingLayer: 5
+  m_SortingLayerID: 673816411
+  m_SortingLayer: 3
   m_SortingOrder: 0
   m_Sprite: {fileID: -8656665243816719747, guid: 167415bdebce9d7459f75271e6066c63, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}

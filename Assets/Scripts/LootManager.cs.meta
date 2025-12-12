@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 9d567c0fcb7f46b46a0e5b80f332e3fa
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - monedaPrefab: {fileID: 2863322435608477367, guid: 953fdd7a241c8ca49a93861eb56c5c0c, type: 3}
+  - pocionPrefab: {fileID: 2748557864773922180, guid: bde5976184d635f4ca8ec7a5abd4f603, type: 3}
+  - flechaPickupPrefab: {fileID: 4555687536156318645, guid: 47a35e40fbe97ab4e81e339062ce2a0e, type: 3}
+  - textoMonedas: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

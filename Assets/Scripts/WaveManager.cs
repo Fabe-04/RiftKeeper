@@ -1,19 +1,19 @@
 using System.Collections;
-using TMPro; // Asegúrate de que esto esté
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI; // Necesario para la UI
+using UnityEngine.UI;
 
-public class WaveManager : MonoBehaviour // ¡Asegúrate de que el nombre de la clase coincida con el archivo!
+public class WaveManager : MonoBehaviour
 {
-    // --- SE ELIMINÓ "timeText" ---
     [SerializeField] TextMeshProUGUI waveText;
 
     public static WaveManager Instance;
 
-    bool waveRunning = false; // Inicia en 'false' hasta que estemos listos
-    int currentWave = 0;
+    bool waveRunning = false;
 
-    // --- SE ELIMINÓ "currentWaveTime" ---
+    // --- CAMBIO 1: Ahora es 'public' para que el GameManager la pueda leer ---
+    public int currentWave = 0;
+    // ------------------------------------------------------------------------
 
     private void Awake()
     {
@@ -22,24 +22,18 @@ public class WaveManager : MonoBehaviour // ¡Asegúrate de que el nombre de la cl
 
     private void Start()
     {
-        // Esperamos 3 segundos antes de empezar la primera oleada
         StartCoroutine(StartNextWaveWithDelay(3.0f));
     }
 
-    // --- "Update()" AHORA ES NUESTRO TEMPORIZADOR DE VERIFICACIÓN ---
     private void Update()
     {
-        // Si la oleada no está corriendo, no hagas nada
         if (!waveRunning) return;
 
-        // Si la oleada está corriendo Y el contador de enemigos llega a CERO...
         if (EnemyManager.Instance.GetLiveEnemyCount() == 0)
         {
-            // ¡Gana la oleada!
             WaveComplete();
         }
     }
-    // --- FIN NUEVO ---
 
     public bool WaveRuuning() => waveRunning;
 
@@ -47,43 +41,36 @@ public class WaveManager : MonoBehaviour // ¡Asegúrate de que el nombre de la cl
     {
         currentWave++;
         waveRunning = true;
-        waveText.text = "Wave: " + currentWave;
 
-        // --- ¡LA NUEVA LÍNEA CLAVE! ---
-        // 1. Generamos la sala ANTES de generar enemigos
+        // --- CAMBIO 2: Traducción al Español ---
+        waveText.text = "Oleada: " + currentWave;
+        // ---------------------------------------
+
         RoomGenerator.Instance.GenerateRoom();
-        // Mover al jugador al centro de la nueva sala (posición 0,0 relativa a la sala)
-        GameObject playerObject = GameObject.FindGameObjectWithTag("Player"); // Busca al jugador por Tag
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
         if (playerObject != null)
         {
-            // Lo teletransportamos al centro (0,0,0) del mundo, que coincide con el centro de la sala
             playerObject.transform.position = Vector3.zero;
         }
-        // --- FIN NUEVO ---
 
-        // 2. Ahora sí, generamos los enemigos dentro de la sala recién creada
         EnemyManager.Instance.SpawnWave(currentWave);
     }
-
-    // --- SE ELIMINÓ LA CORUTINA "WaveTimer()" ---
 
     private void WaveComplete()
     {
         waveRunning = false;
-        waveText.text = "Wave " + currentWave + " Complete!";
 
-        // Ya no necesitamos destruir a los enemigos, ¡ya están muertos!
-        // EnemyManager.Instance.DestroyAllEnemies(); 
+        // --- CAMBIO 3: Traducción al Español ---
+        waveText.text = "¡Oleada " + currentWave + " Completada!";
+        // ---------------------------------------
 
-        // Empezamos la siguiente oleada después de 5 segundos de descanso
-        StartNewWave();
+        StartNewWave(); // Nota: Aquí quitaste el retraso en tu código original, si quieres delay usa la corrutina
     }
 
-    // --- NUEVA CORUTINA DE RETRASO ---
     IEnumerator StartNextWaveWithDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
         StartNewWave();
     }
-    // --- FIN NUEVO ---
 }

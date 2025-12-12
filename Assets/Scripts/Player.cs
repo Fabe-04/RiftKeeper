@@ -1,39 +1,48 @@
-using TMPro;
+Ôªøusing TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem; // Importante
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
-    [SerializeField] TextMeshProUGUI healthtext;
+    [Header("Interfaz (UI)")]
+    public Slider barraDeVida;
+    public Slider barraStamina;          // <--- Barra de cansancio
+    public TextMeshProUGUI textoFlechas; // <--- Contador de flechas
 
+    [Header("Recursos")]
+    public int maxFlechas = 10;
+    public int flechasActuales;
+    public float maxStamina = 100;
+    public float currentStamina;
+
+    [Header("Configuraci√≥n Movimiento")]
+    [SerializeField] float walkSpeed = 8f;
+    [SerializeField] float runSpeed = 14f;
+    float moveSpeed;
+
+    // Variables internas
     Animator anim;
     Rigidbody2D rb;
-
-    float moveSpeed = 12;
-    int maxHealth = 100;
     int currentHealth;
-
+    public int maxHealth = 100;
     bool dead = false;
 
     private InputSystem_Actions playerControls;
     private Vector2 movement;
-
-    // --- NUEVO: Variables de Apuntado ---
     private Camera mainCamera;
     private Vector2 aimInput;
-    // --- FIN NUEVO ---
 
-    int facingDirection = 1;
+    [SerializeField] SpriteRenderer mySprite;
+
+    // Variable para saber si corremos
+    private bool runHeld = false;
 
     private void Awake()
     {
         anim = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
-
-        // --- NUEVO: Obtener la c·mara principal ---
         mainCamera = Camera.main;
-        // --- FIN NUEVO ---
-
         playerControls = new InputSystem_Actions();
     }
 
@@ -41,26 +50,42 @@ public class Player : MonoBehaviour
     {
         playerControls.Player.Enable();
 
-        // --- NUEVO: Registrar la acciÛn de "Attack" ---
-        // Cuando se presiona "Attack", se llama a la funciÛn HandleShoot
-        playerControls.Player.Attack.performed += HandleShoot;
-        // --- FIN NUEVO ---
+        // Disparar con clic izquierdo
+        playerControls.Player.Attack.performed += HandleAttack;
+
+        // Detectar tecla Shift para correr
+        playerControls.Player.Sprint.performed += ctx => runHeld = true;
+        playerControls.Player.Sprint.canceled += ctx => runHeld = false;
     }
 
     private void OnDisable()
     {
         playerControls.Player.Disable();
-
-        // --- NUEVO: De-registrar la acciÛn ---
-        playerControls.Player.Attack.performed -= HandleShoot;
-        // --- FIN NUEVO ---
+        playerControls.Player.Attack.performed -= HandleAttack;
     }
-
 
     private void Start()
     {
         currentHealth = maxHealth;
-        healthtext.text = maxHealth.ToString();
+        currentStamina = maxStamina;
+        flechasActuales = 20;
+
+        // --- CORRECCI√ìN VITAL ---
+        // Configuramos los l√≠mites de las barras al iniciar
+        if (barraDeVida != null)
+        {
+            barraDeVida.maxValue = maxHealth; // La barra vale 100
+            barraDeVida.value = currentHealth;
+        }
+
+        if (barraStamina != null)
+        {
+            barraStamina.maxValue = maxStamina; // La barra vale 100
+            barraStamina.value = currentStamina;
+        }
+        // ------------------------
+
+        UpdateUI();
     }
 
     private void Update()
@@ -72,75 +97,101 @@ public class Player : MonoBehaviour
             return;
         }
 
-        // --- L”GICA DE INPUT ---
         movement = playerControls.Player.Move.ReadValue<Vector2>();
-
-        // --- NUEVO: Leer la POSICI”N del mouse (no el delta) ---
-        // Usamos la acciÛn "Look" pero leemos el input del mouse directamente
         aimInput = Mouse.current.position.ReadValue();
-        // --- FIN NUEVO ---
 
-
-        // --- NUEVO: Llamar a las funciones de lÛgica ---
+        HandleStamina(); // Gestionar el correr
         HandleAiming();
         HandleMovementAnimation();
-        // --- FIN NUEVO ---
+    }
+
+    // --- 1. SISTEMA DE CORRER (STAMINA) ---
+    void HandleStamina()
+    {
+        // Si nos movemos Y pulsamos Shift Y tenemos energ√≠a
+        if (movement.magnitude > 0 && runHeld && currentStamina > 0)
+        {
+            moveSpeed = runSpeed;
+            currentStamina -= 30f * Time.deltaTime; // Gastamos energ√≠a
+        }
+        else
+        {
+            moveSpeed = walkSpeed;
+            // Recuperamos energ√≠a si no corremos
+            if (currentStamina < maxStamina)
+                currentStamina += 15f * Time.deltaTime;
+        }
+
+        // Actualizamos la barra azul/amarilla
+        if (barraStamina != null)
+            barraStamina.value = currentStamina;
+    }
+
+    // --- 2. SISTEMA DE DISPARO (FLECHAS) ---
+    private void HandleAttack(InputAction.CallbackContext context)
+    {
+        if (dead) return;
+
+        if (GunManager.Instance != null)
+        {
+            if (flechasActuales > 0)
+            {
+                // Disparamos
+                foreach (Gun gun in GunManager.Instance.activeGuns)
+                {
+                    gun.TryToShoot();
+                }
+
+                flechasActuales--; // Restamos una flecha
+                UpdateUI();        // Actualizamos el texto
+            }
+            else
+            {
+                Debug.Log("üö´ ¬°Clic! Sin flechas.");
+            }
+        }
+    }
+
+    // --- 3. RECOGER FLECHAS ---
+    public void RecogerFlecha(int cantidad)
+    {
+        flechasActuales += cantidad;
+        // No pasarnos del m√°ximo
+        if (flechasActuales > maxFlechas) flechasActuales = maxFlechas;
+
+        UpdateUI();
+        Debug.Log("Flecha recuperada!");
+    }
+
+    // --- FUNCIONES VISUALES ---
+    void UpdateUI()
+    {
+        if (barraDeVida != null)
+            barraDeVida.value = currentHealth;
+
+        if (textoFlechas != null)
+            textoFlechas.text = "Flechas: " + flechasActuales + "/" + maxFlechas;
     }
 
     private void HandleMovementAnimation()
     {
         anim.SetFloat("velocity", movement.magnitude);
-
-        // Esta lÛgica de "facing" debe cambiar: ahora la define el mouse, no el movimiento.
-        // La eliminaremos por ahora para que el apuntado la controle.
-        /*
-        if (movement.x != 0)
-            facingDirection = movement.x > 0 ? 1 : -1;
-        transform.localScale = new Vector2(facingDirection, 1);
-        */
     }
 
-    // --- NUEVA FUNCI”N: HandleAiming() ---
     private void HandleAiming()
     {
-        // 1. Convertir la posiciÛn del mouse (Pixeles) a la posiciÛn del Mundo (Unidades de Unity)
         Vector2 mouseWorldPosition = mainCamera.ScreenToWorldPoint(aimInput);
-
-        // 2. Calcular la direcciÛn desde el jugador hacia el mouse
         Vector2 aimDirection = (mouseWorldPosition - (Vector2)transform.position).normalized;
 
-        // 3. Actualizar el "facing" del jugador basado en el mouse
-        if (aimDirection.x != 0)
-            facingDirection = aimDirection.x > 0 ? 1 : -1;
-        transform.localScale = new Vector2(facingDirection, 1);
+        if (mySprite != null)
+            mySprite.flipX = (aimDirection.x < 0);
 
-        // 4. Decirle a todas las armas que apunten en esa direcciÛn
-        if (GunManager.Instance != null) // Asegurarse que el Manager existe
-        {
-            foreach (Gun gun in GunManager.Instance.activeGuns)
-            {
-                gun.Aim(aimDirection);
-            }
-        }
-    }
-    // --- FIN NUEVO ---
-
-    // --- NUEVA FUNCI”N: HandleShoot() ---
-    // Esta funciÛn es llamada por el Evento de Input "Attack"
-    private void HandleShoot(InputAction.CallbackContext context)
-    {
-        if (dead) return; // No disparar si est· muerto
-
-        // Decirle a todas las armas que intenten disparar
         if (GunManager.Instance != null)
         {
             foreach (Gun gun in GunManager.Instance.activeGuns)
-            {
-                gun.TryToShoot();
-            }
+                gun.Aim(aimDirection);
         }
     }
-    // --- FIN NUEVO ---
 
     private void FixedUpdate()
     {
@@ -150,20 +201,26 @@ public class Player : MonoBehaviour
     private void OnCollisionEnter2D(Collision2D collision)
     {
         Enemy enemy = collision.gameObject.GetComponent<Enemy>();
-
-        if (enemy != null)
-            Hit(20);
+        if (enemy != null) Hit(20);
     }
 
     void Hit(int damage)
     {
         anim.SetTrigger("hit");
         currentHealth -= damage;
-        healthtext.text = Mathf.Clamp(currentHealth, 0, maxHealth).ToString();
+        UpdateUI();
 
         if (currentHealth <= 0)
             Die();
     }
+
+    public void Curar(int cantidad)
+    {
+        currentHealth += cantidad;
+        if (currentHealth > maxHealth) currentHealth = maxHealth;
+        UpdateUI();
+    }
+
     void Die()
     {
         dead = true;
