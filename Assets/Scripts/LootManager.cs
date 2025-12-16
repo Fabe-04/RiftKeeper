@@ -1,20 +1,32 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using TMPro;
 
 public class LootManager : MonoBehaviour
 {
     public static LootManager Instance;
 
-    [Header("Objetos que van a caer")]
-    public GameObject monedaPrefab;
-    public GameObject pocionPrefab;
-    public GameObject flechaPickupPrefab; // <--- NUEVO: Arrastra tu prefab aquí
+    [System.Serializable]
+    public struct LootItem
+    {
+        public GameObject prefab;
+        [Range(0, 100)] public float dropChance;
+    }
 
-    [Header("Interfaz (UI)")]
-    public TextMeshProUGUI textoMonedas;
-    public int monedasTotales = 0;
+    [Header("Tablas de Loot")]
+    public List<LootItem> basicEnemyLoot;
+    public List<LootItem> chargerEnemyLoot;
+    public List<LootItem> bossLoot;
 
-    public enum EnemyType { Basico, Charger }
+    // Enum para tipos de enemigos
+    public enum EnemyType { Basico, Charger, Boss }
+
+    [Header("Loot Global")]
+    public GameObject flechaPickupPrefab;
+    [Range(0, 100)] public float flechaDropChance = 50f;
+
+    // NOTA: Eliminamos 'textoMonedas' y 'monedasTotales' de aquí.
+    // La UI y el dato real viven en GameManager.
 
     private void Awake()
     {
@@ -22,54 +34,47 @@ public class LootManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
-    private void Start()
-    {
-        ActualizarTexto();
-    }
-
     public void SpawnLoot(Vector3 posicionMuerte, EnemyType tipoEnemigo)
     {
-        Vector3 posicionVisible = new Vector3(posicionMuerte.x, posicionMuerte.y, 0f);
-
-        // --- LÓGICA DE FLECHAS (Para todos los enemigos) ---
-        // 50% de probabilidad de recuperar una flecha al matar
+        // 1. Loot Global (Flechas)
         if (flechaPickupPrefab != null)
         {
-            if (Random.Range(0f, 100f) <= 100f)
+            if (Random.Range(0f, 100f) <= flechaDropChance)
             {
-                Instantiate(flechaPickupPrefab, posicionVisible, Quaternion.identity);
+                Instantiate(flechaPickupPrefab, posicionMuerte, Quaternion.identity);
             }
         }
-        // ---------------------------------------------------
 
-        if (tipoEnemigo == EnemyType.Basico)
+        // 2. Selección de Tabla
+        List<LootItem> tableToUse = null;
+
+        switch (tipoEnemigo)
         {
-            if (Random.Range(0f, 100f) <= 70f)
-            {
-                // Un pequeño desplazamiento para que no caiga encima de la flecha
-                Instantiate(monedaPrefab, posicionVisible + new Vector3(1.5f, 0, 0), Quaternion.identity);
-            }
+            case EnemyType.Basico: tableToUse = basicEnemyLoot; break;
+            case EnemyType.Charger: tableToUse = chargerEnemyLoot; break;
+            case EnemyType.Boss: tableToUse = bossLoot; break;
         }
-        else if (tipoEnemigo == EnemyType.Charger)
-        {
-            Instantiate(monedaPrefab, posicionVisible + new Vector3(0.5f, 0, 0), Quaternion.identity);
 
-            if (Random.Range(0f, 100f) <= 100f) // Probabilidad Poción
+        if (tableToUse == null) return;
+
+        // 3. Generar Loot
+        foreach (var item in tableToUse)
+        {
+            float roll = Random.Range(0f, 100f);
+            if (roll <= item.dropChance)
             {
-                Vector3 posPocion = posicionVisible + new Vector3(-0.5f, 0, 0);
-                Instantiate(pocionPrefab, posPocion, Quaternion.identity);
+                Vector3 spawnPos = posicionMuerte + new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.5f, 0.5f), 0);
+                Instantiate(item.prefab, spawnPos, Quaternion.identity);
             }
         }
     }
 
+    // REDIRECCIÓN: Ahora sumar moneda llama al GameManager
     public void SumarMoneda(int cantidad)
     {
-        monedasTotales += cantidad;
-        ActualizarTexto();
-    }
-
-    void ActualizarTexto()
-    {
-        if (textoMonedas != null) textoMonedas.text = "Monedas: " + monedasTotales.ToString();
+        if (GameManager.instance != null)
+        {
+            GameManager.instance.AddCoins(cantidad);
+        }
     }
 }

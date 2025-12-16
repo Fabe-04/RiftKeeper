@@ -1,14 +1,21 @@
-﻿using TMPro;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 
 public class Player : MonoBehaviour
 {
-    [Header("Interfaz (UI)")]
-    public Slider barraDeVida;
-    public Slider barraStamina;          // <--- Barra de cansancio
-    public TextMeshProUGUI textoFlechas; // <--- Contador de flechas
+    [Header("Combate & Inventario")]
+    public bool hasBow = false;
+    public bool isUsingBow = false;
+
+    [Header("Defensa")]
+    [SerializeField] float tiempoInvulnerabilidad = 1.0f;
+    private float ultimoGolpeTime;
+
+    [Header("Referencias de Combate")]
+    public SwordAttack swordScript;
+    // --- NUEVO: Referencia al objeto visual para poder ocultarlo ---
+    public GameObject objetoEspadaVisual;
+    // --------------------------------------------------------------
 
     [Header("Recursos")]
     public int maxFlechas = 10;
@@ -16,15 +23,15 @@ public class Player : MonoBehaviour
     public float maxStamina = 100;
     public float currentStamina;
 
-    [Header("Configuración Movimiento")]
-    [SerializeField] float walkSpeed = 8f;
-    [SerializeField] float runSpeed = 14f;
+    [Header("Movimiento")]
+    [SerializeField] float walkSpeed = 5f;
+    [SerializeField] float runSpeed = 8.5f;
     float moveSpeed;
 
-    // Variables internas
     Animator anim;
     Rigidbody2D rb;
-    int currentHealth;
+
+    public int currentHealth;
     public int maxHealth = 100;
     bool dead = false;
 
@@ -32,10 +39,7 @@ public class Player : MonoBehaviour
     private Vector2 movement;
     private Camera mainCamera;
     private Vector2 aimInput;
-
     [SerializeField] SpriteRenderer mySprite;
-
-    // Variable para saber si corremos
     private bool runHeld = false;
 
     private void Awake()
@@ -49,11 +53,9 @@ public class Player : MonoBehaviour
     private void OnEnable()
     {
         playerControls.Player.Enable();
-
-        // Disparar con clic izquierdo
         playerControls.Player.Attack.performed += HandleAttack;
-
-        // Detectar tecla Shift para correr
+        // Input 'Next' (Tecla Q) configurado en el Input System
+        playerControls.Player.Next.performed += ctx => SwapWeapon();
         playerControls.Player.Sprint.performed += ctx => runHeld = true;
         playerControls.Player.Sprint.canceled += ctx => runHeld = false;
     }
@@ -68,114 +70,135 @@ public class Player : MonoBehaviour
     {
         currentHealth = maxHealth;
         currentStamina = maxStamina;
-        flechasActuales = 20;
+        flechasActuales = 5;
+        ultimoGolpeTime = -tiempoInvulnerabilidad;
 
-        // --- CORRECCIÓN VITAL ---
-        // Configuramos los límites de las barras al iniciar
-        if (barraDeVida != null)
-        {
-            barraDeVida.maxValue = maxHealth; // La barra vale 100
-            barraDeVida.value = currentHealth;
-        }
-
-        if (barraStamina != null)
-        {
-            barraStamina.maxValue = maxStamina; // La barra vale 100
-            barraStamina.value = currentStamina;
-        }
-        // ------------------------
-
+        // 1. Sincronizar UI Inicial
         UpdateUI();
+
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.MostrarArcoEnHUD(hasBow);
+            if (GameManager.instance != null)
+                UIManager.Instance.ActualizarMonedas(GameManager.instance.currentCoins);
+        }
+
+        // 2. Estado visual inicial de las armas
+        ToggleGunVisuals(false); // Apagar arco al inicio
+
+        if (objetoEspadaVisual != null)
+            objetoEspadaVisual.SetActive(true); // Asegurar que la espada se ve al iniciar
     }
 
     private void Update()
     {
-        if (dead)
-        {
-            movement = Vector2.zero;
-            anim.SetFloat("velocity", 0);
-            return;
-        }
+        if (dead) { StopMotion(); return; }
 
         movement = playerControls.Player.Move.ReadValue<Vector2>();
         aimInput = Mouse.current.position.ReadValue();
 
-        HandleStamina(); // Gestionar el correr
+        HandleStamina();
         HandleAiming();
         HandleMovementAnimation();
     }
 
-    // --- 1. SISTEMA DE CORRER (STAMINA) ---
-    void HandleStamina()
+    // --- LÓGICA DE ARMAS (AUDITADA) ---
+    private void SwapWeapon()
     {
-        // Si nos movemos Y pulsamos Shift Y tenemos energía
-        if (movement.magnitude > 0 && runHeld && currentStamina > 0)
-        {
-            moveSpeed = runSpeed;
-            currentStamina -= 30f * Time.deltaTime; // Gastamos energía
-        }
-        else
-        {
-            moveSpeed = walkSpeed;
-            // Recuperamos energía si no corremos
-            if (currentStamina < maxStamina)
-                currentStamina += 15f * Time.deltaTime;
-        }
+        if (!hasBow) return; // Seguridad: si no tengo arco, no hago nada
 
-        // Actualizamos la barra azul/amarilla
-        if (barraStamina != null)
-            barraStamina.value = currentStamina;
+        isUsingBow = !isUsingBow;
+
+        // 1. Gestionar Arco (GunManager)
+        ToggleGunVisuals(isUsingBow);
+
+        // 2. Gestionar Espada (Visual)
+        // Si uso arco (true) -> Espada apagada (false)
+        // Si no uso arco (false) -> Espada encendida (true)
+        if (objetoEspadaVisual != null)
+            objetoEspadaVisual.SetActive(!isUsingBow);
+
+        // 3. Gestionar UI
+        if (UIManager.Instance != null)
+            UIManager.Instance.CambiarArmaVisual(isUsingBow);
+
+        UpdateUI();
     }
 
-    // --- 2. SISTEMA DE DISPARO (FLECHAS) ---
+    void ToggleGunVisuals(bool active)
+    {
+        if (GunManager.Instance != null)
+        {
+            foreach (Gun gun in GunManager.Instance.activeGuns)
+                gun.gameObject.SetActive(active);
+        }
+    }
+
+    // --- COMBATE ---
     private void HandleAttack(InputAction.CallbackContext context)
     {
         if (dead) return;
 
-        if (GunManager.Instance != null)
-        {
-            if (flechasActuales > 0)
-            {
-                // Disparamos
-                foreach (Gun gun in GunManager.Instance.activeGuns)
-                {
-                    gun.TryToShoot();
-                }
+        Vector2 mouseWorldPosition = mainCamera.ScreenToWorldPoint(aimInput);
+        Vector2 aimDirection = (mouseWorldPosition - (Vector2)transform.position).normalized;
 
-                flechasActuales--; // Restamos una flecha
-                UpdateUI();        // Actualizamos el texto
-            }
-            else
+        if (isUsingBow && hasBow)
+        {
+            if (GunManager.Instance != null)
             {
-                Debug.Log("🚫 ¡Clic! Sin flechas.");
+                if (flechasActuales > 0)
+                {
+                    foreach (Gun gun in GunManager.Instance.activeGuns) gun.TryToShoot();
+                    flechasActuales--;
+                    UpdateUI();
+                }
+            }
+        }
+        else
+        {
+            if (swordScript != null)
+            {
+                swordScript.Attack(aimDirection);
+                anim.SetTrigger("attackMelee");
             }
         }
     }
 
-    // --- 3. RECOGER FLECHAS ---
-    public void RecogerFlecha(int cantidad)
+    // --- RESTO DE SISTEMAS (Sin Cambios) ---
+    public void UpgradeMaxHealth(int amount)
     {
-        flechasActuales += cantidad;
-        // No pasarnos del máximo
-        if (flechasActuales > maxFlechas) flechasActuales = maxFlechas;
-
+        maxHealth += amount;
+        currentHealth += amount;
         UpdateUI();
-        Debug.Log("Flecha recuperada!");
     }
 
-    // --- FUNCIONES VISUALES ---
-    void UpdateUI()
+    public void UpgradeMaxStamina(float amount)
     {
-        if (barraDeVida != null)
-            barraDeVida.value = currentHealth;
-
-        if (textoFlechas != null)
-            textoFlechas.text = "Flechas: " + flechasActuales + "/" + maxFlechas;
+        maxStamina += amount;
+        currentStamina = maxStamina;
+        UpdateUI();
     }
 
-    private void HandleMovementAnimation()
+    public void UpgradeSwordDamage(int amount)
     {
-        anim.SetFloat("velocity", movement.magnitude);
+        if (swordScript != null) swordScript.UpgradeDamage(amount);
+    }
+
+    void HandleStamina()
+    {
+        if (movement.magnitude > 0 && runHeld && currentStamina > 0)
+        {
+            moveSpeed = runSpeed;
+            currentStamina -= 25f * Time.deltaTime;
+        }
+        else
+        {
+            moveSpeed = walkSpeed;
+            if (currentStamina < maxStamina) currentStamina += 15f * Time.deltaTime;
+        }
+
+        if (UIManager.Instance != null)
+            UIManager.Instance.ActualizarStamina(currentStamina, maxStamina);
     }
 
     private void HandleAiming()
@@ -183,36 +206,31 @@ public class Player : MonoBehaviour
         Vector2 mouseWorldPosition = mainCamera.ScreenToWorldPoint(aimInput);
         Vector2 aimDirection = (mouseWorldPosition - (Vector2)transform.position).normalized;
 
-        if (mySprite != null)
-            mySprite.flipX = (aimDirection.x < 0);
+        if (mySprite != null) mySprite.flipX = (aimDirection.x < 0);
 
-        if (GunManager.Instance != null)
+        if (isUsingBow && GunManager.Instance != null)
         {
             foreach (Gun gun in GunManager.Instance.activeGuns)
                 gun.Aim(aimDirection);
         }
     }
 
-    private void FixedUpdate()
-    {
-        rb.linearVelocity = movement * moveSpeed;
-    }
+    private void HandleMovementAnimation() => anim.SetFloat("velocity", movement.magnitude);
+    private void FixedUpdate() => rb.linearVelocity = movement * moveSpeed;
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    public void TakeDamage(int damage)
     {
-        Enemy enemy = collision.gameObject.GetComponent<Enemy>();
-        if (enemy != null) Hit(20);
-    }
+        if (Time.time - ultimoGolpeTime < tiempoInvulnerabilidad) return;
 
-    void Hit(int damage)
-    {
-        anim.SetTrigger("hit");
+        ultimoGolpeTime = Time.time;
         currentHealth -= damage;
+        anim.SetTrigger("hit");
         UpdateUI();
 
-        if (currentHealth <= 0)
-            Die();
+        if (currentHealth <= 0) Die();
     }
+
+    void Hit(int damage) => TakeDamage(damage);
 
     public void Curar(int cantidad)
     {
@@ -221,9 +239,34 @@ public class Player : MonoBehaviour
         UpdateUI();
     }
 
+    public void RecogerFlecha(int cantidad)
+    {
+        flechasActuales += cantidad;
+        if (flechasActuales > maxFlechas) flechasActuales = maxFlechas;
+        UpdateUI();
+    }
+
     void Die()
     {
         dead = true;
         GameManager.instance.GameOver();
+    }
+
+    void StopMotion()
+    {
+        movement = Vector2.zero;
+        anim.SetFloat("velocity", 0);
+        rb.linearVelocity = Vector2.zero;
+    }
+
+    void UpdateUI()
+    {
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.ActualizarVida(currentHealth, maxHealth);
+            UIManager.Instance.ActualizarStamina(currentStamina, maxStamina);
+            UIManager.Instance.ActualizarFlechas(flechasActuales);
+            UIManager.Instance.CambiarArmaVisual(isUsingBow);
+        }
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System;
 
 public class Enemy : MonoBehaviour
 {
@@ -8,31 +9,34 @@ public class Enemy : MonoBehaviour
 
     [Header("Stats")]
     [SerializeField] int maxHealth = 100;
-    [SerializeField] float baseSpeed = 2f;
+    [SerializeField] float baseSpeed = 3.5f;
+
+    // --- CAMBIO IMPORTANTE: PUBLIC para que el Hitbox hijo pueda leerlo ---
+    public int damageToPlayer = 10;
+    // ---------------------------------------------------------------------
 
     [Header("Charger (Elite)")]
     [SerializeField] bool isCharger;
-    [SerializeField] float chargerSlowModifier = 0.75f;
-    [SerializeField] float distanceToEngageCharge = 5f;
-    [SerializeField] float chargeSpeed = 12f;
-    [SerializeField] float chargePrepareTime = 0.8f;
-    [SerializeField] float chargeDistance = 7f;
+    [SerializeField] float chargerSlowModifier = 0.6f;
+    [SerializeField] float distanceToEngageCharge = 6f;
+    [SerializeField] float chargeSpeed = 10f;
+    [SerializeField] float chargePrepareTime = 1.0f;
+    [SerializeField] float chargeDistance = 8f;
 
-    // --- Variables de estado ---
+    public Action<int, int> OnHealthChanged;
+    public Action OnDeath;
+
     private bool isPreparingCharge = false;
     private bool isCharging = false;
     private float currentMoveSpeed;
     private Vector2 chargeTargetDirection;
     private Vector2 chargeStartPosition;
-
     private int currentHealth;
-    private Transform target;
 
+    private Transform target;
     private Rigidbody2D rb;
     private Animator anim;
     private Coroutine chargeCoroutine;
-
-    // --- Variable para guardar el tamaño ---
     private float enemyScale = 1f;
 
     private void Awake()
@@ -45,13 +49,11 @@ public class Enemy : MonoBehaviour
     {
         currentHealth = maxHealth;
 
-        // --- Configurar Tamaño y Masa según el tipo ---
         if (enemyType == LootManager.EnemyType.Charger)
         {
             enemyScale = 1.5f;
             rb.mass = 50f;
-            if (isCharger) currentMoveSpeed = baseSpeed * chargerSlowModifier;
-            else currentMoveSpeed = baseSpeed;
+            currentMoveSpeed = isCharger ? baseSpeed * chargerSlowModifier : baseSpeed;
         }
         else
         {
@@ -61,35 +63,30 @@ public class Enemy : MonoBehaviour
         }
 
         target = GameObject.FindWithTag("Player")?.transform;
-
-        if (EnemyManager.Instance != null)
-            EnemyManager.Instance.RegisterEnemy(this);
     }
 
     private void Update()
     {
-        if (target == null || (WaveManager.Instance != null && !WaveManager.Instance.WaveRuuning()) || isPreparingCharge || isCharging || currentHealth <= 0)
-        {
+        if (GameManager.instance != null && !GameManager.instance.IsGameRunning()) return;
+
+        if (target == null || isPreparingCharge || isCharging || currentHealth <= 0)
             return;
-        }
 
         var playerToTheRight = target.position.x > transform.position.x;
         transform.localScale = new Vector3(playerToTheRight ? -enemyScale : enemyScale, enemyScale, 1);
 
         if (isCharger && Vector2.Distance(transform.position, target.position) < distanceToEngageCharge)
         {
-            if (chargeCoroutine == null)
-            {
-                chargeCoroutine = StartCoroutine(ChargeAttack());
-            }
+            if (chargeCoroutine == null) chargeCoroutine = StartCoroutine(ChargeAttack());
         }
     }
 
     private void FixedUpdate()
     {
-        bool canMoveNormally = target != null && (WaveManager.Instance != null && WaveManager.Instance.WaveRuuning()) && !isPreparingCharge && !isCharging && currentHealth > 0;
+        bool gameActive = (GameManager.instance != null && GameManager.instance.IsGameRunning());
+        bool canMove = target != null && gameActive && !isPreparingCharge && !isCharging && currentHealth > 0;
 
-        if (canMoveNormally)
+        if (canMove)
         {
             Vector2 direction = (target.position - transform.position).normalized;
             rb.linearVelocity = direction * currentMoveSpeed;
@@ -104,19 +101,17 @@ public class Enemy : MonoBehaviour
     {
         isPreparingCharge = true;
         rb.linearVelocity = Vector2.zero;
-
         anim?.SetTrigger("PrepareCharge");
 
-        chargeTargetDirection = (target.position - transform.position).normalized;
+        if (target != null)
+            chargeTargetDirection = (target.position - transform.position).normalized;
 
         yield return new WaitForSeconds(chargePrepareTime);
 
         isPreparingCharge = false;
         isCharging = true;
         chargeStartPosition = rb.position;
-
         rb.linearVelocity = chargeTargetDirection * chargeSpeed;
-
         anim?.SetTrigger("Charge");
 
         float distanceTraveled = 0f;
@@ -126,38 +121,41 @@ public class Enemy : MonoBehaviour
             yield return null;
         }
 
-        if (isCharging)
-        {
-            StopCharge();
-        }
+        if (isCharging) StopCharge();
     }
+
+    // --- LÓGICA DE COLISIÓN LIMPIA (Solo Paredes) ---
+    // Hemos eliminado la lógica de daño al Player aquí porque
+    // ahora lo maneja el script 'EnemyHitbox' en el objeto hijo.
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (isCharging && collision.gameObject.CompareTag("Wall"))
-        {
-            StopCharge();
-        }
+        if (isCharging && collision.gameObject.CompareTag("Wall")) StopCharge();
     }
+
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        if (isCharging && collision.gameObject.CompareTag("Wall")) StopCharge();
+    }
+    // ------------------------------------------------
 
     private void StopCharge()
     {
         if (!isCharging) return;
-
         isCharging = false;
         rb.linearVelocity = Vector2.zero;
         currentMoveSpeed = baseSpeed * chargerSlowModifier;
         anim?.SetTrigger("Idle");
-
         chargeCoroutine = null;
     }
 
     public void Hit(int damage)
     {
         if (currentHealth <= 0) return;
-
         currentHealth -= damage;
         anim?.SetTrigger("hit");
+
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         if (isCharging || isPreparingCharge)
         {
@@ -165,34 +163,21 @@ public class Enemy : MonoBehaviour
             StopCharge();
         }
 
-        if (currentHealth <= 0)
-        {
-            Die();
-        }
+        if (currentHealth <= 0) Die();
     }
 
     void Die()
     {
         StopAllCoroutines();
         rb.linearVelocity = Vector2.zero;
-        isCharging = false;
-        isPreparingCharge = false;
 
-        if (EnemyManager.Instance != null)
-            EnemyManager.Instance.UnregisterEnemy(this);
+        OnDeath?.Invoke();
 
-        // --- NUEVO: AVISAR AL GAME MANAGER ---
-        // Aquí es donde ocurre la magia del conteo
         if (GameManager.instance != null)
-        {
-            GameManager.instance.RegistrarMuerteEnemigo();
-        }
-        // -------------------------------------
+            GameManager.instance.RegistrarKill();
 
         if (LootManager.Instance != null)
-        {
             LootManager.Instance.SpawnLoot(transform.position, enemyType);
-        }
 
         Destroy(gameObject);
     }

@@ -1,96 +1,115 @@
-using System.Collections.Generic; // ¡Importante! Para usar Listas
+using System.Collections.Generic;
 using UnityEngine;
 
 public class EnemyManager : MonoBehaviour
 {
-    [SerializeField] GameObject enemyPrefab;
-    [SerializeField] GameObject chargerPrefab;
-
-    // --- LÓGICA DE SPAWN ELIMINADA DE AQUÍ ---
-    // [SerializeField] float timeBetweenSpawns = 0.5f;
-    // public float currentTimeBetweenSpawns;
-
-    Transform enemiesParent;
     public static EnemyManager Instance;
 
-    // --- NUEVO: El "Contador" de Enemigos ---
-    private List<Enemy> liveEnemies = new List<Enemy>();
-    // --- FIN NUEVO ---
+    [Header("Prefabs")]
+    [SerializeField] GameObject enemyPrefab;
+    [SerializeField] GameObject chargerPrefab;
+    [SerializeField] GameObject bossPrefab; // <--- NUEVO: Para el Jefe Final
 
+    [Header("Configuración de Spawning")]
+    [SerializeField] int minEnemies = 2;
+    [SerializeField] int maxEnemies = 4;
+
+    [Header("Ajustes de Posicionamiento")]
+    [Tooltip("Distancia desde la pared hacia adentro")]
+    [SerializeField] float margenParedes = 2.0f;
+    // Eliminada variable 'grosorBorde' para limpiar el Warning
+
+    Transform enemiesParent;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 
-    private void Start()
+    public List<Enemy> SpawnEnemiesInRoom(Vector2 roomCenter, int anchoSala, int altoSala)
     {
-        enemiesParent = GameObject.Find("Enemies").transform;
-    }
+        List<Enemy> spawnedList = new List<Enemy>();
 
-    // --- SE ELIMINÓ EL "Update()" ---
-    // Ya no generamos enemigos constantemente, sino en ráfagas.
-
-    Vector2 RandomPosition()
-    {
-        // 1. Pregunta al RoomGenerator por los límites de la sala actual
-        BoundsInt salaBounds = RoomGenerator.Instance.SalaGeneradaBounds;
-
-        // 2. Calcula una posición X e Y aleatoria DENTRO de esos límites
-        // Sumamos/Restamos 1 para dejar un pequeño margen y no aparecer pegado al muro
-        float randomX = Random.Range(salaBounds.xMin + 1.5f, salaBounds.xMax - 1.5f);
-        float randomY = Random.Range(salaBounds.yMin + 1.5f, salaBounds.yMax - 1.5f);
-
-        return new Vector2(randomX, randomY);
-    }
-
-    // --- NUEVA FUNCIÓN: Llamada por WaveManager ---
-    public void SpawnWave(int waveNumber)
-    {
-        // Una fórmula simple para hacer que el juego sea más difícil
-        int enemiesToSpawn = 5 + (waveNumber * 2); // Oleada 1 = 7, Oleada 2 = 9, etc.
-
-        for (int i = 0; i < enemiesToSpawn; i++)
+        if (enemiesParent == null)
         {
-            // Tu lógica de spawn de 90/10 estaba perfecta
-            var roll = Random.Range(0, 100);
-            var enemyType = roll < 90 ? enemyPrefab : chargerPrefab;
+            GameObject p = new GameObject("Enemies_Container");
+            enemiesParent = p.transform;
+        }
 
-            var e = Instantiate(enemyType, RandomPosition(), Quaternion.identity);
-            e.transform.SetParent(enemiesParent);
+        int count = Random.Range(minEnemies, maxEnemies + 1);
 
-            // ¡No te olvides de añadirlo a la lista!
-            // (El script 'Enemy' se registrará a sí mismo en Start())
+        float limiteX = (anchoSala / 2f) - margenParedes;
+        float limiteY = (altoSala / 2f) - margenParedes;
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector2 spawnPos = ObtenerPosicionPerimetral(roomCenter, limiteX, limiteY);
+
+            GameObject prefab = (Random.value > 0.8f) ? chargerPrefab : enemyPrefab;
+
+            if (prefab != null)
+            {
+                GameObject obj = Instantiate(prefab, spawnPos, Quaternion.identity, enemiesParent);
+                Enemy script = obj.GetComponent<Enemy>();
+                if (script != null) spawnedList.Add(script);
+            }
+        }
+        return spawnedList;
+    }
+
+    // --- NUEVO MÉTODO PARA EL JEFE (Soluciona el Error CS1061) ---
+    public void SpawnBoss(Vector2 position)
+    {
+        if (bossPrefab != null)
+        {
+            if (enemiesParent == null)
+            {
+                GameObject p = new GameObject("Enemies_Container");
+                enemiesParent = p.transform;
+            }
+            // Instanciamos el jefe en el centro de su sala
+            Instantiate(bossPrefab, position, Quaternion.identity, enemiesParent);
+        }
+        else
+        {
+            Debug.LogWarning("EnemyManager: ¡No has asignado el Boss Prefab en el Inspector!");
         }
     }
-    // --- FIN NUEVO ---
+    // ------------------------------------------------------------
 
-
-    // --- NUEVAS FUNCIONES DE REGISTRO ---
-    // El 'Enemy.cs' llamará a estas funciones
-
-    public void RegisterEnemy(Enemy enemy)
+    Vector2 ObtenerPosicionPerimetral(Vector2 centro, float xMax, float yMax)
     {
-        liveEnemies.Add(enemy);
-    }
+        int lado = Random.Range(0, 4);
+        float x = 0, y = 0;
 
-    public void UnregisterEnemy(Enemy enemy)
-    {
-        liveEnemies.Remove(enemy);
+        switch (lado)
+        {
+            case 0: // ARRIBA
+                x = Random.Range(-xMax, xMax);
+                y = yMax;
+                break;
+            case 1: // ABAJO
+                x = Random.Range(-xMax, xMax);
+                y = -yMax;
+                break;
+            case 2: // IZQUIERDA
+                x = -xMax;
+                y = Random.Range(-yMax, yMax);
+                break;
+            case 3: // DERECHA
+                x = xMax;
+                y = Random.Range(-yMax, yMax);
+                break;
+        }
+        return centro + new Vector2(x, y);
     }
-
-    public int GetLiveEnemyCount()
-    {
-        return liveEnemies.Count;
-    }
-    // --- FIN NUEVO ---
 
     public void DestroyAllEnemies()
     {
-        // Esta función sigue siendo útil si el jugador sale
-        foreach (Transform e in enemiesParent)
-            Destroy(e.gameObject);
-
-        liveEnemies.Clear(); // Limpiamos la lista
+        if (enemiesParent != null)
+        {
+            foreach (Transform child in enemiesParent) Destroy(child.gameObject);
+        }
     }
 }
