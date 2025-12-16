@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Wall
   - Obstacle
+  - Enemy
   layers:
   - Default
   - TransparentFX
@@ -13,9 +14,9 @@ TagManager:
   - 
   - Water
   - UI
-  - 
-  - 
+  - Minimap
   - Player
+  - Personajes
   - Enemies
   - PlayerProjectiles
   - EnemyProjectiles

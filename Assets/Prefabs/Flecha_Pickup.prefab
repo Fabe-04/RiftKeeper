@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 339807727814936131}
   - component: {fileID: 8627430829639507429}
   - component: {fileID: -7697597371101328280}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Flecha_Pickup
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -126,17 +126,17 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
+  m_Offset: {x: 0.13576889, y: 0}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 8.22, y: 1.59}
+    oldSize: {x: 3.2109375, y: 0.62109375}
     newSize: {x: 8.22, y: 1.59}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 8.22, y: 1.59}
+  m_Size: {x: 2.9178925, y: 0.64676857}
   m_EdgeRadius: 0
 --- !u!114 &-7697597371101328280
 MonoBehaviour:

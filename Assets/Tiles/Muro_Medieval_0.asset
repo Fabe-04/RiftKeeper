@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 13312, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: Muro_Medieval_0
   m_EditorClassIdentifier: UnityEngine.dll::UnityEngine.Tilemaps.Tile
-  m_Sprite: {fileID: 5380975228943744571, guid: dc5620063cd7f9c41907433571924e35, type: 3}
+  m_Sprite: {fileID: -1198260224233227898, guid: 64b07e2a826b02c409d3d55e77b7c71d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Transform:
     e00: 1

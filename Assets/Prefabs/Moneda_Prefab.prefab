@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8161300524047411151}
   - component: {fileID: -37552316200668066}
   - component: {fileID: 7701179062746542714}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Moneda_Prefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -126,8 +126,8 @@ CircleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0.0532554}
-  m_Radius: 1.1162405
+  m_Offset: {x: 0, y: -0.0006697973}
+  m_Radius: 0.4475676
 --- !u!114 &7701179062746542714
 MonoBehaviour:
   m_ObjectHideFlags: 0
